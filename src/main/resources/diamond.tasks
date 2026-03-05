@@ -1,0 +1,15 @@
+# Diamond dependency pattern
+#
+#     compile
+#     /    \
+#   test   lint
+#     \    /
+#    package
+#       |
+#    deploy
+#
+compile: duration=5
+test: duration=3, depends=[compile]
+lint: duration=2, depends=[compile]
+package: duration=4, depends=[test, lint]
+deploy: duration=1, depends=[package]

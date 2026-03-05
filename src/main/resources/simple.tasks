@@ -1,0 +1,6 @@
+# Simple linear build pipeline
+clean: duration=1
+compile: duration=5, depends=[clean]
+test: duration=3, depends=[compile]
+package: duration=4, depends=[test]
+deploy: duration=1, depends=[package]

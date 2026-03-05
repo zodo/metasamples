@@ -1,0 +1,81 @@
+# Large build pipeline — 55 tasks
+
+# Phase 1: Setup
+clean: duration=1
+resolve_deps: duration=3, depends=[clean]
+generate_sources: duration=2, depends=[resolve_deps]
+
+# Phase 2: Compilation
+compile_api: duration=4, depends=[generate_sources]
+compile_model: duration=3, depends=[generate_sources]
+compile_service: duration=5, depends=[compile_api, compile_model]
+compile_web: duration=4, depends=[compile_api, compile_model]
+compile_persistence: duration=3, depends=[compile_model]
+compile_security: duration=2, depends=[compile_api]
+compile_messaging: duration=3, depends=[compile_model, compile_api]
+compile_utils: duration=2, depends=[generate_sources]
+compile_config: duration=2, depends=[compile_utils]
+compile_batch: duration=4, depends=[compile_service, compile_persistence]
+compile_integration: duration=3, depends=[compile_service, compile_web]
+
+# Phase 3: Unit tests
+test_api: duration=3, depends=[compile_api]
+test_model: duration=2, depends=[compile_model]
+test_service: duration=5, depends=[compile_service]
+test_web: duration=4, depends=[compile_web]
+test_persistence: duration=3, depends=[compile_persistence]
+test_security: duration=2, depends=[compile_security]
+test_messaging: duration=3, depends=[compile_messaging]
+test_utils: duration=1, depends=[compile_utils]
+test_config: duration=1, depends=[compile_config]
+test_batch: duration=4, depends=[compile_batch]
+test_integration: duration=5, depends=[compile_integration]
+
+# Phase 4: Code quality
+lint_checkstyle: duration=2, depends=[compile_service, compile_web]
+lint_spotbugs: duration=3, depends=[compile_service, compile_web]
+lint_pmd: duration=2, depends=[compile_service, compile_web]
+coverage_report: duration=2, depends=[test_service, test_web, test_api]
+
+# Phase 5: Packaging
+package_api_jar: duration=2, depends=[test_api, lint_checkstyle]
+package_service_jar: duration=2, depends=[test_service, lint_checkstyle]
+package_web_war: duration=3, depends=[test_web, lint_checkstyle]
+package_batch_jar: duration=2, depends=[test_batch]
+
+# Phase 6: Integration tests
+start_test_db: duration=2, depends=[package_service_jar]
+start_test_queue: duration=2, depends=[package_service_jar]
+integration_test_persistence: duration=5, depends=[start_test_db, test_persistence]
+integration_test_messaging: duration=4, depends=[start_test_queue, test_messaging]
+integration_test_api: duration=5, depends=[package_api_jar, start_test_db]
+integration_test_batch: duration=4, depends=[package_batch_jar, start_test_db]
+
+# Phase 7: Security & analysis
+dependency_check: duration=4, depends=[resolve_deps]
+license_check: duration=2, depends=[resolve_deps]
+sast_scan: duration=5, depends=[compile_service, compile_web]
+secrets_scan: duration=1, depends=[generate_sources]
+
+# Phase 8: Documentation
+generate_javadoc: duration=3, depends=[compile_service, compile_web, compile_api]
+generate_openapi: duration=2, depends=[compile_web]
+generate_changelog: duration=1, depends=[clean]
+
+# Phase 9: Container
+build_docker_image: duration=4, depends=[package_web_war, package_service_jar]
+scan_docker_image: duration=3, depends=[build_docker_image]
+tag_docker_image: duration=1, depends=[scan_docker_image]
+
+# Phase 10: Publish
+publish_api_jar: duration=2, depends=[integration_test_api, coverage_report]
+publish_service_jar: duration=2, depends=[integration_test_persistence, coverage_report]
+push_docker_image: duration=3, depends=[tag_docker_image, integration_test_api]
+publish_javadoc: duration=1, depends=[generate_javadoc]
+
+# Phase 11: Deploy
+deploy_staging: duration=3, depends=[push_docker_image, publish_service_jar]
+smoke_test_staging: duration=4, depends=[deploy_staging]
+deploy_production: duration=2, depends=[smoke_test_staging, sast_scan, dependency_check]
+smoke_test_production: duration=3, depends=[deploy_production]
+notify_team: duration=1, depends=[smoke_test_production]
